@@ -37,6 +37,7 @@ class IperfServer:
     
     async def run_forever(self) -> None:
         """Keep restarting the server after each connection."""
+        self._running = True
         while self._running:
             if not await self.start():
                 await asyncio.sleep(1)

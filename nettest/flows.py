@@ -403,21 +403,19 @@ class ElephantFlowGenerator:
         console.print(f"[cyan]Starting elephant flows: {concurrent} concurrent[/cyan]")
         
         async def run_flow():
-            while self._running:
+            # Run a single elephant flow for the full duration
+            # (no loop - elephant flows are sustained transfers, not repeated ones)
+            if self._running:
                 result = await self.generate_flow(duration)
                 result_callback(result)
-                if not self._running:
-                    break
         
         # Start concurrent elephant flows
         tasks = [asyncio.create_task(run_flow()) for _ in range(concurrent)]
         self._tasks.update(tasks)
         
-        # Wait for duration
-        await asyncio.sleep(duration)
-        self.stop()
-        
-        # Wait for tasks to complete
+        # Wait for flows to complete naturally (they run for `duration` seconds via iperf3 -t)
+        # Don't call stop() here - let the flows finish on their own
+        # The orchestrator will call stop() for cleanup when the test ends
         await asyncio.gather(*tasks, return_exceptions=True)
     
     def stop(self) -> None:
