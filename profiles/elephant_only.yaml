@@ -1,0 +1,17 @@
+# Elephant Flow Test Profile
+# Simulates large, sustained data transfers typical of file downloads,
+# backups, and streaming applications.
+
+name: "Elephant Flows Only"
+description: "Sustained high-bandwidth transfers"
+duration: 120 # Test duration in seconds
+
+mice_flows:
+  enabled: false
+
+elephant_flows:
+  enabled: true
+  # Number of concurrent long-lived connections
+  concurrent: 5
+  # Bandwidth limit per flow (200 Mbps each = 1 Gbps total for 5 flows)
+  bandwidth: "200M"

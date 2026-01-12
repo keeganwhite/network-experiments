@@ -1,0 +1,25 @@
+# Quick Test Profile
+# Fast validation test to verify connectivity and basic functionality.
+# Use this for initial setup and connectivity verification.
+
+name: "Quick Test"
+description: "Fast connectivity and functionality test"
+duration: 30  # 30-second test
+
+mice_flows:
+  enabled: true
+  # Small transfers
+  size_range: [1024, 10240]  # 1KB to 10KB
+  # Short duration
+  duration_range: [0.1, 0.5]
+  # Low concurrency
+  concurrent: 10
+  # Connection rate (flows per second)
+  rate: 20
+
+elephant_flows:
+  enabled: true
+  # Few concurrent connections
+  concurrent: 2
+  # Limited bandwidth
+  bandwidth: "100M"

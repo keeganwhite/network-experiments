@@ -1,0 +1,27 @@
+# Mixed Realistic Workload Profile
+# Simulates real-world network traffic with 80/20 split:
+# - 80% of flows are mice (small, bursty)
+# - 20% of flows are elephants (consuming 80% of bandwidth)
+# This pattern is commonly observed in enterprise and data center networks.
+
+name: "Mixed Realistic Workload"
+description: "80/20 mice/elephant flow distribution - realistic network simulation"
+duration: 300 # 5-minute test
+
+mice_flows:
+  enabled: true
+  # Size range: 1KB to 100KB
+  size_range: [1024, 102400]
+  # Duration: 100ms to 1s
+  duration_range: [0.1, 1.0]
+  # Moderate concurrency
+  concurrent: 30
+  # Connection rate (flows per second)
+  rate: 50
+
+elephant_flows:
+  enabled: true
+  # Fewer concurrent connections
+  concurrent: 3
+  # Bandwidth limit per flow
+  bandwidth: "200M"

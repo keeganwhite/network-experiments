@@ -1,0 +1,21 @@
+# Mice Flow Test Profile
+# Simulates high-volume small data transfers typical of web browsing,
+# API calls, and interactive applications.
+
+name: "Mice Flows Only"
+description: "High-frequency small data transfers (1KB-100KB)"
+duration: 60 # Test duration in seconds
+
+mice_flows:
+  enabled: true
+  # Size range in bytes (1KB to 100KB)
+  size_range: [1024, 102400]
+  # Duration range in seconds (100ms to 1s)
+  duration_range: [0.1, 1.0]
+  # Maximum simultaneous connections
+  concurrent: 50
+  # New connections per second
+  rate: 100
+
+elephant_flows:
+  enabled: false
