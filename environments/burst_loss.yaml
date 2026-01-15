@@ -1,0 +1,27 @@
+# Burst Packet Loss Environment
+# Uses Gilbert-Elliott model for realistic bursty loss patterns
+#
+# Use case: Test resilience to burst loss, FEC effectiveness
+# Typical scenario: Wireless links, congested routers
+
+name: "Burst Packet Loss"
+description: "Network with bursty packet loss patterns (Gilbert-Elliott model)"
+interface: ""
+
+latency:
+  delay_ms: 30
+  jitter_ms: 10
+  correlation_pct: 0
+
+# Gilbert-Elliott model for burst loss
+# The network alternates between "good" and "bad" states
+# p13: probability of entering bad state (%)
+# p31: probability of leaving bad state (%)
+# p32: probability of loss while in bad state (%)
+# p14: probability of ECN marking (%)
+packet_loss:
+  loss_pct: 0        # Use Gilbert-Elliott instead of random
+  p13: 5             # 5% chance to enter burst loss state
+  p31: 80            # 80% chance to recover from burst state
+  p32: 50            # 50% loss when in bad state
+  p14: 0             # No ECN marking

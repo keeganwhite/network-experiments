@@ -1,0 +1,23 @@
+# 3G Mobile Network Environment
+# Simulates older 3G mobile network with higher latency
+#
+# Use case: Test fallback scenarios, poor network handling
+# Typical real-world values: 100-200ms latency, 1-5Mbps bandwidth
+
+name: "3G Mobile Network"
+description: "Simulates 3G mobile conditions with higher latency"
+interface: ""
+
+latency:
+  delay_ms: 150      # Higher latency than 4G
+  jitter_ms: 50      # Significant jitter
+  correlation_pct: 30
+  distribution: normal
+
+packet_loss:
+  loss_pct: 2        # 2% packet loss
+  correlation_pct: 30
+
+bandwidth:
+  rate: "2mbit"      # 2 Mbps
+  burst: "64kbit"

@@ -1,0 +1,28 @@
+# Satellite Internet Environment
+# Simulates high-latency satellite connections (GEO satellite)
+#
+# Use case: Test timeout handling, bufferbloat sensitivity
+# Typical values: 500-700ms RTT, 10-50Mbps (Starlink), 1-25Mbps (GEO)
+
+name: "Satellite Connection"
+description: "High-latency geostationary satellite internet"
+interface: ""
+
+latency:
+  delay_ms: 600      # ~600ms one-way = ~1200ms RTT
+  jitter_ms: 50      # Some variation due to weather, etc.
+  correlation_pct: 0
+  distribution: normal
+
+packet_loss:
+  loss_pct: 0.5      # Weather-dependent loss
+  correlation_pct: 0
+
+bandwidth:
+  rate: "10mbit"
+  burst: "128kbit"
+  latency_ms: 100    # Queue latency
+
+# Note: For Starlink (LEO satellite), use:
+# latency.delay_ms: 40
+# bandwidth.rate: 100mbit

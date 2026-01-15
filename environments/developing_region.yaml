@@ -1,0 +1,27 @@
+# Developing Region Internet
+# Simulates challenging network conditions in emerging markets
+#
+# Use case: Test global accessibility, graceful degradation
+# Typical scenario: Limited infrastructure, shared bandwidth
+
+name: "Developing Region Internet"
+description: "Challenging network conditions typical in emerging markets"
+interface: ""
+
+latency:
+  delay_ms: 200      # High latency
+  jitter_ms: 100     # High variability
+  correlation_pct: 40
+  distribution: paretonormal  # Mix of normal and long-tail delays
+
+packet_loss:
+  loss_pct: 5        # Significant loss
+  correlation_pct: 50  # Bursty
+
+corruption:
+  corrupt_pct: 0.5   # Some corruption
+  correlation_pct: 0
+
+bandwidth:
+  rate: "1mbit"      # Very limited
+  burst: "16kbit"

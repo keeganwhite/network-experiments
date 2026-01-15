@@ -1,0 +1,23 @@
+# 4G/LTE Mobile Network Environment
+# Simulates typical 4G mobile network conditions
+#
+# Use case: Test mobile app behavior, API timeout handling
+# Typical real-world values: 20-50ms latency, 10-25Mbps bandwidth
+
+name: "4G Mobile Network"
+description: "Simulates typical 4G/LTE mobile conditions"
+interface: ""  # Auto-detect or specify (e.g., eth0)
+
+latency:
+  delay_ms: 50       # Base latency in milliseconds
+  jitter_ms: 20      # Variation (+/- 20ms)
+  correlation_pct: 25  # 25% correlation with previous packet
+  distribution: normal
+
+packet_loss:
+  loss_pct: 0.5      # 0.5% random packet loss (typical for mobile)
+  correlation_pct: 25
+
+bandwidth:
+  rate: "25mbit"     # 25 Mbps download
+  burst: "256kbit"   # Burst allowance
