@@ -57,7 +57,7 @@ python3 -m nettest env apply --preset 4g-mobile
 - Accurate measurements
 
 **Cons:**
-- Single-stream testing
+- Defaults to single-stream (use `-P` flag for parallel streams)
 - No traffic patterns
 - Manual coordination
 
