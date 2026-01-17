@@ -1,0 +1,44 @@
+# Switch & Cloud Controller - Stress Test
+# Find the breaking point of your switch and cloud controller
+#
+# WARNING: This test uses aggressive client counts and may cause
+# network degradation. Run during maintenance windows.
+#
+# Usage:
+#   python3 -m nettest scenario sweep -s scenarios/switch_stress_test.yaml --server 10.10.10.2
+
+name: "Switch & Controller Stress Test"
+description: "Find breaking point of switch/controller with aggressive WiFi load"
+
+# Aggressive client ramp to find limits
+client_counts: [10, 20, 30, 40, 50, 60, 70, 80, 100]
+
+# Longer duration to ensure steady-state
+duration: 90                    # 90 seconds per test
+ramp_up_time: 15
+
+# No artificial degradation - stress the real hardware
+environment: null
+environment_preset: null
+
+# High-activity user profile (power users)
+client_profile:
+  name: "power_user"
+
+  # Aggressive mice flows
+  mice_enabled: true
+  mice_size_range: [512, 131072]   # 512B - 128KB (larger payloads)
+  mice_rate: 12.0                   # 12 requests/sec per client
+  mice_concurrent: 6                # Higher concurrency
+
+  # Streaming/downloads enabled
+  elephant_enabled: true
+  elephant_bandwidth: "5M"          # 5 Mbps per stream (HD video quality)
+
+# Allow controller to recover between tests
+delay_between_tests: 30
+
+thresholds:
+  min_success_rate: 90
+  max_latency_ms: 200
+  min_throughput_mbps: 0.5

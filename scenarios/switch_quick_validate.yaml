@@ -1,0 +1,31 @@
+# Switch & Cloud Controller - Quick Validation
+# Fast sanity check before running full capacity tests
+#
+# Usage:
+#   python3 -m nettest scenario sweep -s scenarios/switch_quick_validate.yaml --server 10.10.10.2
+
+name: "Switch Quick Validation"
+description: "Quick sanity check of switch/controller connectivity and basic capacity"
+
+# Fewer client counts, shorter duration
+client_counts: [5, 10, 20]
+
+# Quick tests
+duration: 30                    # 30 seconds per test
+ramp_up_time: 5
+
+# No environment degradation
+environment: null
+environment_preset: null
+
+client_profile:
+  name: "light_wifi_user"
+  
+  mice_enabled: true
+  mice_size_range: [1024, 32768]  # 1KB - 32KB
+  mice_rate: 4.0                   # 4 requests/sec per client
+  mice_concurrent: 3
+  
+  elephant_enabled: false          # No streaming for quick test
+
+delay_between_tests: 5

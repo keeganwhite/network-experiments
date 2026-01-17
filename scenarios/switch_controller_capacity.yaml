@@ -1,0 +1,59 @@
+# Switch & Cloud Controller Capacity Test
+# Test the capacity of your switch and cloud controller under varying WiFi client loads
+#
+# Setup:
+#   - Server: 10.10.10.2 (wired to network)
+#   - Client: Laptop on WiFi (running the test)
+#
+# Usage:
+#   1. Start server on 10.10.10.2:
+#      ./scripts/start_server.sh
+#
+#   2. Run sweep from your WiFi laptop:
+#      python3 -m nettest scenario sweep -s scenarios/switch_controller_capacity.yaml --server 10.10.10.2
+#
+#   3. Analyze results:
+#      python3 -m nettest results analyze results/sweep_*.json
+
+name: "Switch & Controller Capacity Test"
+description: "Test switch/controller capacity with realistic WiFi client traffic patterns"
+
+# Graduated client counts to find capacity limits
+# Tests small meetings -> busy office -> crowded venue scenarios
+client_counts: [5, 10, 15, 20, 25, 30, 40, 50, 60]
+
+# Test configuration
+duration: 60                    # 60 seconds per test level
+ramp_up_time: 10               # Gradually add clients to avoid thundering herd
+
+# No artificial network degradation - test actual switch/WiFi performance
+environment: null
+environment_preset: null
+
+# Realistic WiFi user traffic profile
+client_profile:
+  name: "realistic_wifi_user"
+
+  # ============================================
+  # Mice flows - typical browsing/API traffic
+  # ============================================
+  mice_enabled: true
+  mice_size_range: [512, 65536]    # 512B - 64KB (web pages, API calls, images)
+  mice_rate: 6.0                    # 6 requests/sec per client (active browsing)
+  mice_concurrent: 4                # Max 4 concurrent connections per client
+
+  # ============================================
+  # Elephant flows - streaming/downloads
+  # ============================================
+  elephant_enabled: true
+  elephant_bandwidth: "2M"          # 2 Mbps per stream (video call quality)
+  elephant_concurrent: 1            # 1 active stream per ~5 clients
+
+# Delay between test levels to let switch/controller stabilize
+delay_between_tests: 15
+
+# Analysis thresholds (used in results analysis)
+thresholds:
+  min_success_rate: 95             # Minimum acceptable success rate (%)
+  max_latency_ms: 100              # Maximum acceptable latency (ms)
+  min_throughput_mbps: 1           # Minimum acceptable throughput per client (Mbps)
