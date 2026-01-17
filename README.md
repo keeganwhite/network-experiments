@@ -136,4 +136,24 @@ See the [docs/](docs/) folder for detailed documentation:
 
 ## License
 
-MIT
+AGLP
+
+
+## Taurine Tests
+
+```
+# Quick validation first
+python3 -m nettest scenario sweep \
+    -s scenarios/switch_quick_validate.yaml \
+    --server 10.10.10.2
+
+# Full capacity test
+python3 -m nettest scenario sweep \
+    -s scenarios/switch_controller_capacity.yaml \
+    --server 10.10.10.2
+
+# Stress test to find breaking point
+python3 -m nettest scenario sweep \
+    -s scenarios/switch_stress_test.yaml \
+    --server 10.10.10.2
+```
