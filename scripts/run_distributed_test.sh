@@ -243,7 +243,7 @@ async def run_test():
     summary["timestamp"] = datetime.now().isoformat()
     summary["clients_on_device"] = clients
 
-    filename = f"distributed_{device_id}_{datetime.now().strftime(\"%Y%m%d_%H%M%S\")}.json"
+    filename = f"distributed_{device_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     filepath = output_dir / filename
 
     with open(filepath, "w") as f:
