@@ -1,0 +1,34 @@
+# Office Network Simulation
+# Simulate typical office workday traffic patterns
+#
+# Usage:
+#   python3 -m nettest scenario sweep -s scenarios/office_simulation.yaml --server 192.168.1.100
+
+name: "Office Network Simulation"
+description: "Simulate office workers on enterprise WiFi"
+
+# Test with typical office sizes
+client_counts: [10, 20, 30, 40, 50]
+
+# Longer test for more realistic results
+duration: 120
+ramp_up_time: 20
+
+# Apply office WiFi conditions
+environment: "environments/wifi_office.yaml"
+
+# Office worker profile (mix of activities)
+client_profile:
+  name: "office_worker"
+
+  # Web apps, email, Slack, etc.
+  mice_enabled: true
+  mice_size_range: [2048, 102400]   # 2KB - 100KB
+  mice_rate: 5.0                     # Moderate browsing
+  mice_concurrent: 8
+
+  # Video calls, file sync
+  elephant_enabled: true
+  elephant_bandwidth: "2M"           # Video call bandwidth
+
+delay_between_tests: 15

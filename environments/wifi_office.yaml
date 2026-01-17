@@ -1,0 +1,22 @@
+# Office WiFi Environment
+# Simulates enterprise WiFi with moderate contention
+#
+# Use case: Testing enterprise access points
+# Typical scenario: 10-30 devices per AP, managed network
+
+name: "Office WiFi (Moderate Contention)"
+description: "Enterprise WiFi with moderate load"
+
+latency:
+  delay_ms: 8
+  jitter_ms: 5
+  correlation_pct: 30
+  distribution: normal
+
+packet_loss:
+  loss_pct: 0.5
+  correlation_pct: 25
+
+bandwidth:
+  rate: "50mbit"   # Shared bandwidth
+  burst: "128kbit"

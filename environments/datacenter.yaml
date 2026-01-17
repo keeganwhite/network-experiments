@@ -1,0 +1,20 @@
+# Datacenter Environment
+# Simulates low-latency datacenter network
+#
+# Use case: Baseline testing, verify performance under ideal conditions
+# Typical values: <1ms latency, minimal loss
+
+name: "Datacenter"
+description: "Low-latency datacenter connection"
+interface: ""
+
+latency:
+  delay_ms: 0.5      # Sub-millisecond latency
+  jitter_ms: 0.1     # Very stable
+  correlation_pct: 0
+
+packet_loss:
+  loss_pct: 0.01     # Extremely rare loss
+  correlation_pct: 0
+
+# No bandwidth limit - datacenter has high capacity

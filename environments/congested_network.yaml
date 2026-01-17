@@ -1,0 +1,23 @@
+# Congested Network Environment
+# Simulates heavily loaded network with variable latency
+#
+# Use case: Test behavior under network congestion
+# Typical scenario: Peak usage hours, overloaded routers
+
+name: "Congested Network"
+description: "Heavily congested network with high jitter and loss"
+interface: ""
+
+latency:
+  delay_ms: 100      # High base latency
+  jitter_ms: 80      # Very high jitter
+  correlation_pct: 50  # Highly correlated delays
+  distribution: pareto  # Long-tail distribution (some very long delays)
+
+packet_loss:
+  loss_pct: 3        # 3% loss from queue drops
+  correlation_pct: 40  # Bursty loss pattern
+
+bandwidth:
+  rate: "5mbit"      # Severely limited bandwidth
+  burst: "32kbit"

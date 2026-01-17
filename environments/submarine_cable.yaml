@@ -1,0 +1,22 @@
+# Submarine Cable (Intercontinental)
+# Simulates long-distance intercontinental connections
+#
+# Use case: Test CDN benefits, geo-distributed systems
+# Typical scenario: US to Europe, US to Asia
+
+name: "Submarine Cable"
+description: "Intercontinental connection via submarine cable"
+interface: ""
+
+latency:
+  delay_ms: 80       # ~80ms one-way (US to Europe)
+  jitter_ms: 5       # Very stable
+  correlation_pct: 0
+  distribution: normal
+
+packet_loss:
+  loss_pct: 0.1      # Low loss (cables are reliable)
+  correlation_pct: 0
+
+# Note: For US to Asia, use delay_ms: 120
+# Note: For US to Australia, use delay_ms: 150

@@ -1,0 +1,19 @@
+# Packet Reordering Environment
+# Simulates out-of-order packet delivery
+#
+# Use case: Test protocol robustness, TCP SACK behavior
+# Typical scenario: Multi-path routing, load balancing
+
+name: "Packet Reordering"
+description: "Network with significant packet reordering"
+interface: ""
+
+latency:
+  delay_ms: 20
+  jitter_ms: 5
+  correlation_pct: 0
+
+reordering:
+  reorder_pct: 10    # 10% of packets reordered
+  correlation_pct: 25
+  gap: 5             # Packets may arrive 5 packets out of order

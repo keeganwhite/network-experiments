@@ -1,0 +1,28 @@
+# WiFi with Interference Environment
+# Simulates WiFi with neighboring network interference
+#
+# Use case: Testing in apartment buildings, dense areas
+# Typical scenario: Many overlapping networks on same channel
+
+name: "WiFi with Interference"
+description: "WiFi network with significant co-channel interference"
+
+latency:
+  delay_ms: 12
+  jitter_ms: 20
+  correlation_pct: 35
+  distribution: normal
+
+# Burst loss from interference patterns
+packet_loss:
+  loss_pct: 0
+  p13: 10              # 10% chance to hit interference burst
+  p31: 70              # Usually recovers quickly
+  p32: 40              # 40% loss during interference
+
+duplication:
+  duplicate_pct: 0.2   # Occasional duplicate from retries
+
+bandwidth:
+  rate: "30mbit"
+  burst: "128kbit"

@@ -1,0 +1,24 @@
+# Lossy WiFi Environment
+# Simulates congested or weak WiFi signal
+#
+# Use case: Test packet loss handling, TCP retransmission behavior
+# Typical scenario: Crowded coffee shop, weak signal at edge of coverage
+
+name: "Lossy WiFi"
+description: "Congested or weak WiFi with high packet loss"
+interface: ""
+
+latency:
+  delay_ms: 10       # Low base latency
+  jitter_ms: 20      # But high jitter due to contention
+  correlation_pct: 50
+
+packet_loss:
+  loss_pct: 5        # 5% packet loss - significant
+  correlation_pct: 25  # Correlated loss (burst patterns)
+
+corruption:
+  corrupt_pct: 0.1   # Occasional bit errors
+  correlation_pct: 0
+
+# No bandwidth limit - WiFi can still be fast between drops

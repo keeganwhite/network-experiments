@@ -1,0 +1,28 @@
+# Crowded WiFi Environment
+# Simulates high-density WiFi (conference, stadium, coffee shop)
+#
+# Use case: Testing AP capacity limits
+# Typical scenario: 30-100+ devices, heavy contention
+
+name: "Crowded WiFi (High Contention)"
+description: "High-density WiFi with significant contention"
+
+latency:
+  delay_ms: 25
+  jitter_ms: 30          # Very high jitter due to contention
+  correlation_pct: 50
+  distribution: pareto   # Long-tail delays from queue backups
+
+packet_loss:
+  loss_pct: 3            # Notable loss from collisions
+  correlation_pct: 40    # Bursty loss pattern
+
+# Gilbert-Elliott for realistic burst loss during contention
+# packet_loss:
+#   p13: 8
+#   p31: 60
+#   p32: 30
+
+bandwidth:
+  rate: "15mbit"         # Severely limited per-client share
+  burst: "64kbit"

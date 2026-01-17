@@ -1,277 +1,139 @@
-# Network Flow Testing Suite
+# Network Testing Suite
 
-A scalable and repeatable network testing framework for emulating mice and elephant flows to thoroughly test networking equipment (switches, routers, firewalls).
+A simple, repeatable network testing framework for emulating real-world network conditions and generating realistic traffic patterns.
 
-## Overview
+**Perfect for testing:** switches, routers, firewalls, load balancers, WiFi access points, and applications under various network conditions.
 
-This suite generates realistic network traffic patterns using iperf3:
+## Features
 
-- **Mice Flows**: Small, short-lived connections (1KB-100KB, < 1 second) - simulates web browsing, API calls, interactive applications
-- **Elephant Flows**: Large, sustained transfers (10MB-1GB, 10-300 seconds) - simulates file downloads, backups, streaming
-- **Mixed Workload**: Realistic 80/20 split where 80% of flows are mice but elephants consume 80% of bandwidth
-
-## Requirements
-
-- **Operating System**: Linux (tested on Ubuntu)
-- **Python**: 3.10 or higher
-- **iperf3**: Installed on both client and server machines
-- **Network**: Two machines connected via the equipment under test
+- **Traffic Generation** - Mice flows (small/bursty) and elephant flows (large/sustained)
+- **Network Emulation** - Latency, jitter, packet loss, bandwidth limits, and more
+- **Multi-Client Simulation** - Test with 10, 20, 30+ concurrent clients
+- **YAML Configuration** - Easy-to-read profiles for repeatable tests
+- **Built-in Presets** - 4G, 3G, satellite, WiFi, and other common scenarios
+- **Results Analysis** - Compare performance across different client counts
+- **Detailed Metrics** - Throughput, retransmits, jitter, packet loss
 
 ## Quick Start
 
-### 1. Installation (Both Machines)
-
-Clone the repository to both machines:
-
-Run the installation script:
+### Install
 
 ```bash
 ./scripts/install.sh
 ```
 
-This installs iperf3 and Python dependencies.
-
-### 2. Start Server (Server Machine)
-
-On the server machine, start the iperf3 server pool:
+### Generate Traffic
 
 ```bash
-./scripts/start_server.sh --ports 50
+# On server machine
+./scripts/start_server.sh
+
+# On client machine
+python3 -m nettest run -p profiles/quick_test.yaml -s <SERVER_IP>
 ```
 
-Options:
-
-- `--ports, -p NUM`: Number of server ports (default: 50)
-- `--base-port, -b PORT`: Starting port number (default: 5201)
-
-### 3. Run Test (Client Machine)
-
-On the client machine, run a test profile:
+### Simulate Network Conditions
 
 ```bash
-# Quick connectivity test
-python3 -m nettest run --profile profiles/quick_test.yaml --server 192.168.1.100
+# Apply 4G mobile conditions
+sudo python3 -m nettest env apply --preset 4g-mobile
 
-# Full mixed workload test
-python3 -m nettest run --profile profiles/mixed_realistic.yaml --server 192.168.1.100
+# Clear when done
+sudo python3 -m nettest env clear
+```
 
-# Stress test
-python3 -m nettest run --profile profiles/stress_test.yaml --server 192.168.1.100
+### Multi-Client Testing
+
+```bash
+# Test with varying client counts (10, 25, 50 clients)
+python3 -m nettest scenario sweep \
+    -s scenarios/quick_client_test.yaml \
+    --server <SERVER_IP>
+
+# Analyze results
+python3 -m nettest results analyze results/sweep_*.json
 ```
 
 ## Test Profiles
 
-| Profile                | Description                    | Duration | Use Case                     |
-| ---------------------- | ------------------------------ | -------- | ---------------------------- |
-| `quick_test.yaml`      | Fast validation                | 30s      | Connectivity check           |
-| `mice_only.yaml`       | High-frequency small transfers | 60s      | Connection handling capacity |
-| `elephant_only.yaml`   | Sustained large transfers      | 120s     | Throughput testing           |
-| `mixed_realistic.yaml` | 80/20 mice/elephant mix        | 300s     | Real-world simulation        |
-| `stress_test.yaml`     | Maximum concurrent connections | 180s     | Find breaking points         |
+| Profile | Duration | Use Case |
+|---------|----------|----------|
+| `quick_test.yaml` | 30s | Connectivity check |
+| `mixed_realistic.yaml` | 300s | Real-world simulation |
+| `stress_test.yaml` | 180s | Find breaking points |
 
-## Command Line Reference
+## Environment Presets
 
-### Run a Test
+| Preset | Latency | Loss | Bandwidth |
+|--------|---------|------|-----------|
+| `4g-mobile` | 50ms | 0.5% | 25Mbit |
+| `satellite` | 600ms | 0.5% | 10Mbit |
+| `lossy-wifi` | 10ms | 5% | - |
+| `congested` | 100ms | 3% | 5Mbit |
 
-```bash
-python3 -m nettest run [OPTIONS]
+List all: `python3 -m nettest env list`
 
-Options:
-  --profile, -p FILE    Path to test profile YAML file (required)
-  --server, -s HOST     Server IP address or hostname (required)
-  --duration, -d SECS   Override test duration
-  --base-port PORT      Base port for connections (default: 5201)
-  --output, -o DIR      Output directory for results (default: results/)
-```
+## Multi-Client Scenarios
 
-### Start Server Pool
+| Scenario | Clients | Use Case |
+|----------|---------|----------|
+| `quick_client_test.yaml` | 10, 25, 50 | Quick validation |
+| `wifi_client_sweep.yaml` | 5-30 | WiFi capacity |
+| `wifi_stress_test.yaml` | 10-80 | Find breaking point |
+| `office_simulation.yaml` | 10-50 | Enterprise simulation |
 
-```bash
-python3 -m nettest server [OPTIONS]
+List all: `python3 -m nettest scenario list`
 
-Options:
-  --ports NUM           Number of server ports (default: 50)
-  --base-port PORT      Base port number (default: 5201)
-```
+## Custom Configurations
 
-## Test Profile Configuration
-
-Create custom profiles by modifying YAML files:
+### Traffic Profile
 
 ```yaml
-name: "My Custom Test"
-description: "Custom test description"
-duration: 120 # seconds
-
+# profiles/my_test.yaml
+name: "My Test"
+duration: 60
 mice_flows:
   enabled: true
-  size_range: [1024, 102400] # bytes (1KB - 100KB)
-  duration_range: [0.1, 1.0] # seconds
-  concurrent: 50 # max simultaneous connections
-  rate: 100 # new connections per second
-
+  concurrent: 50
+  rate: 100
 elephant_flows:
   enabled: true
-  concurrent: 5 # simultaneous long flows
-  bandwidth: "200M" # per-flow bandwidth limit
+  concurrent: 5
 ```
 
-### Configuration Parameters
+### Network Environment
 
-**mice_flows:**
-
-- `enabled`: Enable/disable mice flow generation
-- `size_range`: [min, max] bytes to transfer per flow
-- `duration_range`: [min, max] seconds per flow
-- `concurrent`: Maximum simultaneous connections
-- `rate`: New connections started per second
-
-**elephant_flows:**
-
-- `enabled`: Enable/disable elephant flow generation
-- `concurrent`: Number of simultaneous long-lived flows
-- `bandwidth`: Per-flow bandwidth limit (iperf3 format: "100M", "1G"); omit for unlimited
-
-## Results
-
-Test results are saved to the `results/` directory as JSON files:
-
-```
-results/
-└── test_results_20260112_143022.json
+```yaml
+# environments/my_env.yaml
+name: "My Environment"
+latency:
+  delay_ms: 100
+  jitter_ms: 20
+packet_loss:
+  loss_pct: 2
+bandwidth:
+  rate: "10mbit"
 ```
 
-Each result file contains:
+Apply: `sudo python3 -m nettest env apply -e environments/my_env.yaml`
 
-- Test summary (duration, success rates, aggregate metrics)
-- Per-flow details (throughput, retransmits, jitter, packet loss)
+## Documentation
 
-### Metrics Collected
+See the [docs/](docs/) folder for detailed documentation:
 
-| Metric       | Description                              |
-| ------------ | ---------------------------------------- |
-| Throughput   | Bits per second (aggregate and per-flow) |
-| Retransmits  | TCP retransmission count                 |
-| Jitter       | Packet delay variation (UDP)             |
-| Packet Loss  | Percentage of lost packets (UDP)         |
-| Success Rate | Percentage of successful flows           |
+- [Getting Started](docs/getting-started.md)
+- [Traffic Generation](docs/traffic-generation.md)
+- [Network Emulation](docs/network-emulation.md)
+- [Multi-Client Testing](docs/multi-client-testing.md)
+- [CLI Reference](docs/cli-reference.md)
+- [Examples](docs/examples.md)
 
-## Architecture
+## Requirements
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                      CLIENT MACHINE                          │
-├──────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐        │
-│  │   Profile   │──▶│ Orchestrator│──▶│   Results   │        │
-│  │   (YAML)    │   │  (Python)   │   │  Collector  │        │
-│  └─────────────┘   └──────┬──────┘   └─────────────┘        │
-│                           │                                  │
-│            ┌──────────────┴──────────────┐                  │
-│            ▼                             ▼                  │
-│  ┌─────────────────┐           ┌─────────────────┐          │
-│  │  Mice Flow Gen  │           │ Elephant Flow   │          │
-│  │  (iperf3 -n)    │           │ Gen (iperf3 -t) │          │
-│  └────────┬────────┘           └────────┬────────┘          │
-│           │                             │                    │
-└───────────┼─────────────────────────────┼────────────────────┘
-            │                             │
-            ▼                             ▼
-┌──────────────────────────────────────────────────────────────┐
-│              DEVICE UNDER TEST (Switch/Router)               │
-└──────────────────────────────────────────────────────────────┘
-            │                             │
-            ▼                             ▼
-┌──────────────────────────────────────────────────────────────┐
-│                      SERVER MACHINE                          │
-├──────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │              iperf3 Server Pool                         │ │
-│  │         Ports 5201-5250 (configurable)                  │ │
-│  └─────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────┘
-```
+- Linux (Ubuntu, Debian, Fedora, CentOS, Arch)
+- Python 3.10+
+- iperf3
 
-## Example Session
+## License
 
-### Server Side
-
-```bash
-$ ./scripts/start_server.sh --ports 50
-Starting server pool using Python orchestrator...
-Starting 50 iperf3 servers...
-Port range: 5201 - 5250
-
-┌───────────────────────────────┐
-│     Server Pool Status        │
-├───────────────┬───────────────┤
-│ Property      │ Value         │
-├───────────────┼───────────────┤
-│ Total Servers │ 50            │
-│ Base Port     │ 5201          │
-│ Status        │ Running       │
-└───────────────┴───────────────┘
-
-Press Ctrl+C to stop all servers
-```
-
-### Client Side
-
-```bash
-$ python3 -m nettest run -p profiles/mixed_realistic.yaml -s 192.168.1.100
-Loading profile: profiles/mixed_realistic.yaml
-Test: Mixed Realistic Workload
-Server: 192.168.1.100
-Duration: 300s
-
-Starting test: Mixed Realistic Workload
-Duration: 300s
-
-Starting mice flows: 30 concurrent, 50/s rate
-Starting elephant flows: 3 concurrent
-
-┌──────────────────────────────────────┐
-│      Network Flow Test Status        │
-├────────────────────┬─────────────────┤
-│ Metric             │ Value           │
-├────────────────────┼─────────────────┤
-│ Elapsed Time       │ 45.2s           │
-│ Remaining          │ 254.8s          │
-│                    │                 │
-│ Mice Flows         │ 2156/2200       │
-│ Elephant Flows     │ 3/3             │
-│                    │                 │
-│ Total Transferred  │ 1.24 GB         │
-│ Throughput         │ 234.56 Mbps     │
-└────────────────────┴─────────────────┘
-
-Test completed!
-
-═══════════════════════════════════════════
-           TEST RESULTS SUMMARY
-═══════════════════════════════════════════
-
-... (detailed results) ...
-
-Results saved to: results/test_results_20260112_143022.json
-```
-
-## Troubleshooting
-
-### "Connection refused" errors
-
-- Ensure the server is running: `./scripts/start_server.sh`
-- Check firewall rules: `sudo ufw allow 5201:5250/tcp`
-- Verify connectivity: `ping <server-ip>`
-
-### Low throughput
-
-- Check for CPU bottlenecks on test machines
-- Reduce concurrent connections
-- Verify physical link capacity
-
-### High packet loss
-
-- May indicate equipment limitations (expected during stress testing)
-- Reduce connection rate or concurrent flows
-- Check for network congestion
+MIT
