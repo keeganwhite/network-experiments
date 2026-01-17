@@ -113,10 +113,11 @@ def cmd_server(args: argparse.Namespace) -> None:
 
 def cmd_env_apply(args: argparse.Namespace) -> None:
     """Apply a network environment."""
-    interface = args.interface or get_default_interface()
-    
-    if not interface:
-        console.print("[red]Error: Could not detect network interface.[/red]")
+    if emulator.clear():
+        console.print("[green]Network emulation cleared.[/green]")
+    else:
+        console.print("[red]Failed to clear network emulation.[/red]")
+        sys.exit(1)
         console.print("[yellow]Please specify with --interface[/yellow]")
         console.print("\n[bold]Available interfaces:[/bold]")
         for iface in list_interfaces():
@@ -149,11 +150,12 @@ def cmd_env_apply(args: argparse.Namespace) -> None:
     # Set interface
     env.interface = interface
     
-    # Apply the environment
-    emulator = NetworkEmulator(interface, verbose=args.verbose)
-    
-    console.print(f"\n[bold]Applying network environment:[/bold]")
-    console.print(f"  Name: [cyan]{env.name}[/cyan]")
+    if emulator.apply(env):
+        console.print("\n[bold green]Environment applied successfully![/bold green]")
+        console.print("\n[yellow]Remember to run 'nettest env clear' when done.[/yellow]")
+    else:
+        console.print("[red]Failed to apply network environment.[/red]")
+        sys.exit(1)
     console.print(f"  Description: {env.description}")
     console.print(f"  Interface: [green]{interface}[/green]")
     

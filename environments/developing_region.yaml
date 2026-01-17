@@ -24,4 +24,5 @@ corruption:
 
 bandwidth:
   rate: "1mbit"      # Very limited
-  burst: "16kbit"
+  burst: "32kbit"    # Allow for typical packet bursts
+

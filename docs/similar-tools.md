@@ -95,6 +95,7 @@ iperf3 -c 192.168.1.100 -t 60
 
 **Example:**
 ```bash
+# bandwidth in kbps
 comcast --device=eth0 --latency=250 --bandwidth=1000 --packet-loss=10%
 ```
 

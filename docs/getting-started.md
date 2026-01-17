@@ -29,6 +29,7 @@ cd nettest
 sudo apt install iperf3  # Debian/Ubuntu
 sudo dnf install iperf3  # Fedora
 sudo yum install iperf3  # CentOS/RHEL
+sudo pacman -S iperf3    # Arch Linux
 
 # Install Python dependencies
 pip install -r requirements.txt
