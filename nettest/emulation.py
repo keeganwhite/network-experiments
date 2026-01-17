@@ -248,11 +248,18 @@ async def _run_tc_command_async(args: list[str], check: bool = True) -> tuple[in
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await proc.communicate()
+    stdout_bytes, stderr_bytes = await proc.communicate()
+    stdout_str = stdout_bytes.decode()
+    stderr_str = stderr_bytes.decode()
+
     if check and proc.returncode != 0:
         console.print(f"[red]tc command failed: {' '.join(cmd)}[/red]")
-        console.print(f"[red]Error: {stderr.decode()}[/red]")
-    return proc.returncode or 0, stdout.decode(), stderr.decode()
+        console.print(f"[red]Error: {stderr_str}[/red]")
+        raise subprocess.CalledProcessError(
+            proc.returncode or 1, cmd, output=stdout_str, stderr=stderr_str
+        )
+
+    return proc.returncode or 0, stdout_str, stderr_str
 
 
 class NetworkEmulator:
@@ -364,8 +371,8 @@ class NetworkEmulator:
         interface = env.interface or self.interface
 
         try:
-            # Clear existing rules first
-            self.clear()
+            # Clear existing rules first (on the same interface we're about to configure)
+            self.clear(interface=interface)
 
             # Build netem parameters
             netem_args = self._build_netem_args(env)
@@ -425,16 +432,21 @@ class NetworkEmulator:
         self._log(f"Adding HTB class: tc {' '.join(cmd_args)}")
         _run_tc_command(cmd_args)
 
-    def clear(self) -> bool:
+    def clear(self, interface: Optional[str] = None) -> bool:
         """Clear all emulation rules.
+
+        Args:
+            interface: Network interface to clear. If None, uses self.interface.
 
         Returns:
             True if successful (or no rules to clear), False on error
         """
+        target_interface = interface or self.interface
+
         try:
             # Remove root qdisc (this removes all child qdiscs too)
             result = _run_tc_command(
-                ["qdisc", "del", "dev", self.interface, "root"],
+                ["qdisc", "del", "dev", target_interface, "root"],
                 check=False
             )
             # ENOENT (no qdisc) is okay
