@@ -1,18 +1,24 @@
-"""Network environment emulation using Linux tc/netem.
+"""Network environment emulation using Linux tc/netem or macOS dummynet.
 
-This module provides a Python interface to Linux Traffic Control (tc) and
-Network Emulator (netem) for simulating various network conditions like:
+This module provides a Python interface for simulating various network conditions:
 - Latency and jitter
 - Packet loss, corruption, duplication, reordering
 - Bandwidth limiting
 - Burst traffic patterns
 
+Platforms:
+- Linux: Uses Traffic Control (tc) and Network Emulator (netem)
+- macOS: Uses dummynet (dnctl) and packet filter (pfctl)
+
 Inspired by tools like comcast, toxiproxy, and wondershaper.
 """
 
 import asyncio
+import os
+import platform
 import subprocess
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
@@ -21,6 +27,10 @@ import yaml
 from rich.console import Console
 
 console = Console()
+
+# Detect platform
+IS_MACOS = platform.system() == "Darwin"
+IS_LINUX = platform.system() == "Linux"
 
 
 @dataclass
@@ -213,19 +223,32 @@ class NetworkEnvironment:
 
 
 def _check_tc_available() -> bool:
-    """Check if tc command is available."""
+    """Check if tc command is available (Linux)."""
     return shutil.which("tc") is not None
 
 
+def _check_dnctl_available() -> bool:
+    """Check if dnctl command is available (macOS)."""
+    return shutil.which("dnctl") is not None
+
+
+def _check_pfctl_available() -> bool:
+    """Check if pfctl command is available (macOS)."""
+    return shutil.which("pfctl") is not None
+
+
 def _check_root() -> bool:
-    """Check if running as root."""
+    """Check if running as root/sudo."""
     import os
     return os.geteuid() == 0
 
 
-def _run_tc_command(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
-    """Run a tc command."""
-    cmd = ["tc"] + args
+def _run_command(
+    cmd: list[str], check: bool = True, sudo: bool = False
+) -> subprocess.CompletedProcess:
+    """Run a shell command."""
+    if sudo and not _check_root():
+        cmd = ["sudo"] + cmd
     try:
         result = subprocess.run(
             cmd,
@@ -235,9 +258,24 @@ def _run_tc_command(args: list[str], check: bool = True) -> subprocess.Completed
         )
         return result
     except subprocess.CalledProcessError as e:
-        console.print(f"[red]tc command failed: {' '.join(cmd)}[/red]")
+        console.print(f"[red]Command failed: {' '.join(cmd)}[/red]")
         console.print(f"[red]Error: {e.stderr}[/red]")
         raise
+
+
+def _run_tc_command(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
+    """Run a tc command (Linux)."""
+    return _run_command(["tc"] + args, check=check)
+
+
+def _run_dnctl_command(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
+    """Run a dnctl command (macOS)."""
+    return _run_command(["dnctl"] + args, check=check, sudo=True)
+
+
+def _run_pfctl_command(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
+    """Run a pfctl command (macOS)."""
+    return _run_command(["pfctl"] + args, check=check, sudo=True)
 
 
 async def _run_tc_command_async(args: list[str], check: bool = True) -> tuple[int, str, str]:
@@ -503,14 +541,302 @@ class NetworkEmulator:
         return status
 
 
+class MacOSNetworkEmulator:
+    """Network environment emulator for macOS using dummynet (dnctl/pfctl).
+
+    Note: macOS dummynet has fewer features than Linux netem.
+    Supported: latency, bandwidth, packet loss
+    Limited/Not supported: jitter distribution, corruption, duplication, reordering
+    """
+
+    # Use pipe numbers starting from 1
+    _PIPE_NUM = 1
+
+    def __init__(self, interface: str, verbose: bool = False):
+        """Initialize the macOS emulator.
+
+        Args:
+            interface: Network interface (used for reference, pfctl applies globally)
+            verbose: Print verbose output
+        """
+        self.interface = interface
+        self.verbose = verbose
+        self._active = False
+        self._pipe_num = MacOSNetworkEmulator._PIPE_NUM
+        self._anchor_name = "nettest"
+        # Use a secure temporary file instead of hardcoded path
+        self._pf_conf_fd: int | None = None
+        self._pf_conf_path: Path | None = None
+
+    def _log(self, message: str) -> None:
+        """Log message if verbose."""
+        if self.verbose:
+            console.print(f"[dim]{message}[/dim]")
+
+    def check_requirements(self) -> list[str]:
+        """Check system requirements and return list of issues."""
+        issues = []
+
+        if not _check_dnctl_available():
+            issues.append("dnctl command not found (should be built into macOS)")
+
+        if not _check_pfctl_available():
+            issues.append("pfctl command not found (should be built into macOS)")
+
+        if not _check_root():
+            issues.append("Root privileges required (use sudo)")
+
+        return issues
+
+    def apply(self, env: NetworkEnvironment) -> bool:
+        """Apply network environment emulation using dummynet.
+
+        Args:
+            env: Network environment configuration
+
+        Returns:
+            True if successful, False otherwise
+        """
+        issues = self.check_requirements()
+        if issues:
+            for issue in issues:
+                console.print(f"[red]Error: {issue}[/red]")
+            return False
+
+        try:
+            # Clear existing rules first
+            self.clear()
+
+            # Build dummynet pipe configuration
+            pipe_config = self._build_pipe_config(env)
+
+            if not pipe_config:
+                console.print("[yellow]No emulation parameters specified[/yellow]")
+                return False
+
+            # Create the dummynet pipe
+            self._log(f"Creating pipe: dnctl pipe {self._pipe_num} config {pipe_config}")
+            _run_dnctl_command(
+                ["pipe", str(self._pipe_num), "config"] + pipe_config.split()
+            )
+
+            # Create pf anchor rules to direct traffic through the pipe
+            self._create_pf_rules(env)
+
+            # Load the pf rules
+            self._load_pf_rules()
+
+            self._active = True
+            console.print(f"[green]Network environment '{env.name}' applied[/green]")
+            console.print(
+                f"[yellow]Note: macOS dummynet applies to all traffic, not just {self.interface}[/yellow]"
+            )
+            return True
+
+        except Exception as e:
+            console.print(f"[red]Failed to apply network environment: {e}[/red]")
+            return False
+
+    def _build_pipe_config(self, env: NetworkEnvironment) -> str:
+        """Build dummynet pipe configuration string."""
+        config_parts = []
+
+        # Bandwidth limiting
+        if env.bandwidth.rate:
+            # Convert rate format (e.g., "10mbit" -> "10Mbit/s")
+            rate = env.bandwidth.rate.lower()
+            if rate.endswith("mbit"):
+                bw = rate.replace("mbit", "Mbit/s")
+            elif rate.endswith("kbit"):
+                bw = rate.replace("kbit", "Kbit/s")
+            elif rate.endswith("gbit"):
+                bw = rate.replace("gbit", "Gbit/s")
+            else:
+                bw = rate
+            config_parts.append(f"bw {bw}")
+
+        # Latency (delay) - preserve fractional milliseconds for sub-ms delays
+        if env.latency.delay_ms > 0:
+            config_parts.append(f"delay {env.latency.delay_ms:.3f}ms")
+
+        # Packet loss (dummynet uses "plr" = packet loss rate, 0-1)
+        if env.packet_loss.loss_pct > 0:
+            plr = env.packet_loss.loss_pct / 100.0
+            config_parts.append(f"plr {plr}")
+
+        # Queue size (optional)
+        if env.bandwidth.limit > 0:
+            config_parts.append(f"queue {env.bandwidth.limit}")
+
+        return " ".join(config_parts)
+
+    def _create_pf_rules(self, env: NetworkEnvironment) -> None:
+        """Create pf configuration file for traffic redirection."""
+        # Create pf rules that redirect traffic through our dummynet pipe
+        rules = []
+
+        # Redirect all outgoing traffic through the pipe
+        rules.append(f"dummynet out all pipe {self._pipe_num}")
+
+        # Optionally filter by target IPs
+        if env.target_ips:
+            rules = []
+            for ip in env.target_ips:
+                rules.append(f"dummynet out to {ip} pipe {self._pipe_num}")
+                rules.append(f"dummynet in from {ip} pipe {self._pipe_num}")
+        else:
+            # Apply to all traffic (both directions for symmetric effect)
+            rules.append(f"dummynet in all pipe {self._pipe_num}")
+
+        # Write pf configuration
+        pf_content = f"""# Network Testing Suite - Temporary PF rules
+# Generated by nettest
+
+anchor "{self._anchor_name}" {{
+{chr(10).join('    ' + r for r in rules)}
+}}
+"""
+        # Clean up any existing temp file first
+        self._cleanup_pf_conf()
+
+        # Create a secure temporary file with restricted permissions (mode 0600)
+        self._pf_conf_fd, pf_conf_path_str = tempfile.mkstemp(
+            prefix="nettest_pf_", suffix=".conf"
+        )
+        self._pf_conf_path = Path(pf_conf_path_str)
+
+        # Write content and close the file descriptor
+        os.write(self._pf_conf_fd, pf_content.encode("utf-8"))
+        os.close(self._pf_conf_fd)
+        self._pf_conf_fd = None
+
+        self._log(f"PF config written to {self._pf_conf_path}")
+
+    def _cleanup_pf_conf(self) -> None:
+        """Clean up the secure temporary PF config file."""
+        if self._pf_conf_fd is not None:
+            try:
+                os.close(self._pf_conf_fd)
+            except OSError:
+                pass  # Already closed
+            self._pf_conf_fd = None
+
+        if self._pf_conf_path is not None and self._pf_conf_path.exists():
+            try:
+                self._pf_conf_path.unlink()
+            except OSError:
+                pass  # Best effort cleanup
+            self._pf_conf_path = None
+
+    def _load_pf_rules(self) -> None:
+        """Load pf rules into the system."""
+        if self._pf_conf_path is None:
+            raise RuntimeError("PF config file not created")
+
+        # First, enable pf if not already enabled
+        _run_pfctl_command(["-e"], check=False)  # May fail if already enabled
+
+        # Load our anchor rules
+        _run_pfctl_command(["-a", self._anchor_name, "-f", str(self._pf_conf_path)])
+        self._log("PF rules loaded")
+
+    def clear(self, interface: Optional[str] = None) -> bool:
+        """Clear all emulation rules.
+
+        Args:
+            interface: Ignored on macOS (rules are global)
+
+        Returns:
+            True if successful
+        """
+        try:
+            # Flush the pf anchor
+            _run_pfctl_command(["-a", self._anchor_name, "-F", "all"], check=False)
+
+            # Delete the dummynet pipe
+            _run_dnctl_command(["pipe", str(self._pipe_num), "delete"], check=False)
+
+            # Clean up secure temp file
+            self._cleanup_pf_conf()
+
+            self._active = False
+            return True
+
+        except Exception as e:
+            console.print(f"[red]Failed to clear rules: {e}[/red]")
+            return False
+
+    def show_status(self) -> dict:
+        """Show current dummynet status.
+
+        Returns:
+            Dictionary with pipe information
+        """
+        status = {
+            "interface": self.interface,
+            "pipes": [],
+            "pf_rules": [],
+        }
+
+        try:
+            # Get pipe status
+            result = _run_dnctl_command(["pipe", "show"], check=False)
+            if result.stdout:
+                status["pipes"] = result.stdout.strip().split("\n")
+
+            # Get pf anchor rules
+            result = _run_pfctl_command(
+                ["-a", self._anchor_name, "-s", "rules"], check=False
+            )
+            if result.stdout:
+                status["pf_rules"] = result.stdout.strip().split("\n")
+
+        except Exception as e:
+            console.print(f"[yellow]Could not get status: {e}[/yellow]")
+
+        return status
+
+
+def create_emulator(interface: str, verbose: bool = False) -> NetworkEmulator | MacOSNetworkEmulator:
+    """Factory function to create the appropriate emulator for the current platform.
+
+    Args:
+        interface: Network interface name
+        verbose: Enable verbose output
+
+    Returns:
+        NetworkEmulator (Linux) or MacOSNetworkEmulator (macOS)
+
+    Raises:
+        NotImplementedError: If the current platform is not supported (e.g., Windows)
+    """
+    if IS_MACOS:
+        return MacOSNetworkEmulator(interface, verbose)
+    elif IS_LINUX:
+        return NetworkEmulator(interface, verbose)
+    else:
+        current_platform = platform.system()
+        raise NotImplementedError(
+            f"Network emulation is not supported on {current_platform}. "
+            f"Supported platforms: Linux (tc/netem), macOS (dummynet/pfctl)."
+        )
+
+
 def get_default_interface() -> Optional[str]:
     """Get the default network interface.
 
     Returns:
         Interface name or None if not found
     """
+    if IS_MACOS:
+        return _get_default_interface_macos()
+    else:
+        return _get_default_interface_linux()
+
+
+def _get_default_interface_linux() -> Optional[str]:
+    """Get default interface on Linux."""
     try:
-        # Try to get default route interface
         result = subprocess.run(
             ["ip", "route", "show", "default"],
             capture_output=True,
@@ -526,6 +852,44 @@ def get_default_interface() -> Optional[str]:
                     return parts[idx + 1]
     except Exception:
         pass
+    return None
+
+
+def _get_default_interface_macos() -> Optional[str]:
+    """Get default interface on macOS."""
+    try:
+        # Get default route
+        result = subprocess.run(
+            ["route", "-n", "get", "default"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout:
+            for line in result.stdout.split("\n"):
+                if "interface:" in line:
+                    return line.split(":")[1].strip()
+    except Exception:
+        pass
+
+    # Fallback: try to find active interface
+    try:
+        result = subprocess.run(
+            ["networksetup", "-listallhardwareports"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            # Look for Wi-Fi or Ethernet
+            lines = result.stdout.split("\n")
+            for i, line in enumerate(lines):
+                if "Wi-Fi" in line or "Ethernet" in line:
+                    # Next line should have Device: enX
+                    if i + 1 < len(lines) and "Device:" in lines[i + 1]:
+                        return lines[i + 1].split(":")[1].strip()
+    except Exception:
+        pass
 
     return None
 
@@ -536,6 +900,14 @@ def list_interfaces() -> list[str]:
     Returns:
         List of interface names
     """
+    if IS_MACOS:
+        return _list_interfaces_macos()
+    else:
+        return _list_interfaces_linux()
+
+
+def _list_interfaces_linux() -> list[str]:
+    """List interfaces on Linux."""
     interfaces = []
     try:
         result = subprocess.run(
@@ -549,11 +921,33 @@ def list_interfaces() -> list[str]:
                 # Format: 1: lo: <LOOPBACK,UP,LOWER_UP> ...
                 parts = line.split(":")
                 if len(parts) >= 2:
-                    iface = parts[1].strip().split("@")[0]  # Handle veth@if123 format
+                    iface = parts[1].strip().split("@")[0]
                     interfaces.append(iface)
     except Exception:
         pass
+    return interfaces
 
+
+def _list_interfaces_macos() -> list[str]:
+    """List interfaces on macOS."""
+    interfaces = []
+    try:
+        result = subprocess.run(
+            ["ifconfig", "-l"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            interfaces = result.stdout.strip().split()
+            # Filter out loopback and internal interfaces
+            interfaces = [
+                i for i in interfaces
+                if not i.startswith("lo") and not i.startswith("gif")
+                and not i.startswith("stf") and not i.startswith("utun")
+            ]
+    except Exception:
+        pass
     return interfaces
 
 

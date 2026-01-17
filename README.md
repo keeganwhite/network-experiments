@@ -4,6 +4,8 @@ A simple, repeatable network testing framework for emulating real-world network 
 
 **Perfect for testing:** switches, routers, firewalls, load balancers, WiFi access points, and applications under various network conditions.
 
+**Platforms:** Linux (Ubuntu, Debian, Fedora, CentOS, Arch) and macOS
+
 ## Features
 
 - **Traffic Generation** - Mice flows (small/bursty) and elephant flows (large/sustained)
@@ -13,6 +15,7 @@ A simple, repeatable network testing framework for emulating real-world network 
 - **Built-in Presets** - 4G, 3G, satellite, WiFi, and other common scenarios
 - **Results Analysis** - Compare performance across different client counts
 - **Detailed Metrics** - Throughput, retransmits, jitter, packet loss
+- **Cross-Platform** - Full support for Linux, traffic generation on macOS
 
 ## Quick Start
 
@@ -81,6 +84,10 @@ List all: `python3 -m nettest env list`
 | `wifi_client_sweep.yaml` | 5-30 | WiFi capacity |
 | `wifi_stress_test.yaml` | 10-80 | Find breaking point |
 | `office_simulation.yaml` | 10-50 | Enterprise simulation |
+| `switch_quick_validate.yaml` | 5, 10, 20 | Switch/controller quick check |
+| `switch_controller_capacity.yaml` | 5-60 | Switch/controller capacity |
+| `switch_stress_test.yaml` | 10-100 | Switch/controller stress test |
+| `switch_mixed_load.yaml` | 10-50 | Realistic mixed usage |
 
 List all: `python3 -m nettest scenario list`
 
@@ -130,30 +137,56 @@ See the [docs/](docs/) folder for detailed documentation:
 
 ## Requirements
 
-- Linux (Ubuntu, Debian, Fedora, CentOS, Arch)
+### All Platforms
 - Python 3.10+
 - iperf3
 
-## License
+### Linux
+- Ubuntu, Debian, Fedora, CentOS, Arch, or compatible
+- `iproute2` (for network emulation with tc/netem)
 
-AGLP
+### macOS
+- macOS 10.15+ (Catalina or later)
+- Homebrew (for installing iperf3)
+- Network emulation uses dummynet (pfctl/dnctl) - requires sudo
 
+## Platform Feature Comparison
 
-## Taurine Tests
+| Feature | Linux | macOS |
+|---------|-------|-------|
+| Traffic Generation | Full | Full |
+| Multi-Client Simulation | Full | Full |
+| Latency Emulation | Full | Full |
+| Bandwidth Limiting | Full | Full |
+| Packet Loss | Full | Full |
+| Jitter (variable delay) | Full | Basic |
+| Corruption/Duplication | Full | Not supported |
+| Reordering | Full | Not supported |
 
-```
-# Quick validation first
+## Switch/Controller Capacity Testing
+
+For testing switch and cloud controller capacity with WiFi clients:
+
+```bash
+# Quick validation (5-20 clients, 30s each)
 python3 -m nettest scenario sweep \
     -s scenarios/switch_quick_validate.yaml \
     --server 10.10.10.2
 
-# Full capacity test
+# Full capacity test (5-60 clients, 60s each)
 python3 -m nettest scenario sweep \
     -s scenarios/switch_controller_capacity.yaml \
     --server 10.10.10.2
 
-# Stress test to find breaking point
+# Stress test to find breaking point (10-100 clients, 90s each)
 python3 -m nettest scenario sweep \
     -s scenarios/switch_stress_test.yaml \
     --server 10.10.10.2
+
+# Analyze results
+python3 -m nettest results analyze results/sweep_*.json
 ```
+
+## License
+
+AGPL

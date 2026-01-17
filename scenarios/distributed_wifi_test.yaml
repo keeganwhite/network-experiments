@@ -1,0 +1,41 @@
+# Distributed WiFi Test Configuration
+# For real multi-device testing across physical WiFi clients
+#
+# This scenario is designed to be run from MULTIPLE physical devices
+# simultaneously to test real WiFi performance.
+#
+# Example Setup (15 total clients):
+#   - 3 laptops on WiFi
+#   - Each laptop runs 5 simulated clients
+#   - Total: 15 real WiFi clients
+#
+# Usage on each device:
+#   python3 -m nettest run -p scenarios/distributed_wifi_test.yaml -s 10.10.10.2 --clients 5
+#
+# Or use the distributed test script:
+#   ./scripts/run_distributed_test.sh --server 10.10.10.2 --clients 5
+
+name: "Distributed WiFi Test"
+description: "Profile for multi-device real WiFi testing"
+
+# Duration per test
+duration: 60
+
+# Client profile per device
+# If you run with --clients 5, these values are multiplied by 5
+client_profile:
+  name: "wifi_user"
+  
+  # Web browsing / API traffic
+  mice_enabled: true
+  mice_size_range: [1024, 65536]   # 1KB - 64KB
+  mice_rate: 6.0                    # 6 requests/sec per client
+  mice_concurrent: 4                # 4 concurrent per client
+  
+  # Video calls / streaming
+  elephant_enabled: true
+  elephant_bandwidth: "2M"          # 2 Mbps per client stream
+
+# No network emulation - test real WiFi conditions
+environment: null
+environment_preset: null
