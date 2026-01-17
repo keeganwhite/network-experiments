@@ -170,7 +170,7 @@ export NETTEST_DURATION="$DURATION"
 export NETTEST_CLIENTS="$CLIENTS"
 
 # Use the scenario runner with a custom profile
-python3 -c '
+python3 << 'PYTHON_SCRIPT'
 import asyncio
 import json
 import os
@@ -253,7 +253,7 @@ async def run_test():
     results.print_summary()
 
 asyncio.run(run_test())
-'
+PYTHON_SCRIPT
 
 echo
 echo -e "${GREEN}Test completed at $(date)${NC}"
