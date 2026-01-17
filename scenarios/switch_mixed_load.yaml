@@ -1,0 +1,37 @@
+# Switch & Cloud Controller - Mixed Load Simulation
+# Realistic mixed usage: some idle users, some active, some streaming
+#
+# This simulates a real WiFi environment where not all users are equally active
+#
+# Usage:
+#   python3 -m nettest scenario sweep -s scenarios/switch_mixed_load.yaml --server 10.10.10.2
+
+name: "Switch Mixed Load Simulation"
+description: "Realistic mixed WiFi usage with varying activity levels"
+
+# Progressive client counts
+client_counts: [10, 20, 30, 40, 50]
+
+duration: 60
+ramp_up_time: 10
+
+environment: null
+environment_preset: null
+
+# Mixed activity profile
+# Assumes ~60% of clients are lightly active, ~30% moderate, ~10% heavy
+# This profile averages that out per "client"
+client_profile:
+  name: "mixed_activity"
+
+  # Light to moderate browsing
+  mice_enabled: true
+  mice_size_range: [1024, 65536]   # 1KB - 64KB typical web content
+  mice_rate: 3.0                    # 3 requests/sec average (many idle)
+  mice_concurrent: 3
+
+  # Some users streaming
+  elephant_enabled: true
+  elephant_bandwidth: "1M"          # Lower bandwidth (spread across fewer actual streams)
+
+delay_between_tests: 15
