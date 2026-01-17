@@ -13,6 +13,8 @@ nettest <command> [options]
 - `run` - Run a traffic test
 - `server` - Start iperf3 server pool
 - `env` - Network environment emulation
+- `scenario` - Multi-client scenario testing
+- `results` - Analyze and compare results
 
 ---
 
@@ -253,8 +255,185 @@ The suite respects standard environment variables:
 - `HOME` - User home directory
 - `PATH` - Command search path
 
+---
+
+## nettest scenario
+
+Multi-client scenario testing subcommand.
+
+### Subcommands
+
+- `run` - Run a single scenario
+- `sweep` - Run parameter sweep (multiple client counts)
+- `list` - List available scenarios
+
+---
+
+## nettest scenario sweep
+
+Run a parameter sweep testing multiple client counts.
+
+### Usage
+
+```bash
+python3 -m nettest scenario sweep --scenario <file> --server <host> [options]
+```
+
+### Required Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `--scenario, -s` | Path to scenario YAML file |
+| `--server` | Server IP address or hostname |
+
+### Optional Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--clients, -c` | (from file) | Override client counts (comma-separated) |
+| `--duration, -d` | (from file) | Override test duration |
+| `--base-port` | 5201 | Base port for iperf3 |
+| `--output, -o` | results/ | Output directory |
+| `--no-env` | false | Don't apply network environment |
+
+### Examples
+
+```bash
+# Run sweep from file
+python3 -m nettest scenario sweep -s scenarios/wifi_client_sweep.yaml --server 192.168.1.100
+
+# Override client counts
+python3 -m nettest scenario sweep -s scenarios/quick_client_test.yaml --server 10.0.0.5 -c "10,20,30,40"
+
+# Skip environment application
+python3 -m nettest scenario sweep -s scenarios/wifi_stress_test.yaml --server 192.168.1.100 --no-env
+```
+
+---
+
+## nettest scenario run
+
+Run a single scenario with a specific client count.
+
+### Usage
+
+```bash
+python3 -m nettest scenario run --scenario <file> --server <host> [options]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `--scenario, -s` | Path to scenario YAML file |
+| `--server` | Server IP address or hostname |
+| `--clients, -c` | Override number of clients |
+| `--duration, -d` | Override test duration |
+| `--no-env` | Don't apply network environment |
+
+---
+
+## nettest scenario list
+
+List available scenario files.
+
+### Usage
+
+```bash
+python3 -m nettest scenario list
+```
+
+---
+
+## nettest results
+
+Results analysis subcommand.
+
+### Subcommands
+
+- `list` - List available result files
+- `analyze` - Analyze a sweep result
+- `compare` - Compare multiple sweeps
+- `export` - Export to CSV
+
+---
+
+## nettest results list
+
+List available result files.
+
+### Usage
+
+```bash
+python3 -m nettest results list [--dir <directory>]
+```
+
+---
+
+## nettest results analyze
+
+Analyze a sweep result file.
+
+### Usage
+
+```bash
+python3 -m nettest results analyze <file>
+```
+
+### Example
+
+```bash
+python3 -m nettest results analyze results/sweep_WiFi_Client_Sweep_20250115_120000.json
+```
+
+### Output
+
+- Peak throughput and client count
+- Breaking point detection
+- Scaling efficiency
+- Per-client throughput trends
+
+---
+
+## nettest results compare
+
+Compare multiple sweep results side by side.
+
+### Usage
+
+```bash
+python3 -m nettest results compare <file1> <file2> [...]
+```
+
+### Example
+
+```bash
+python3 -m nettest results compare results/sweep_baseline_*.json results/sweep_with_env_*.json
+```
+
+---
+
+## nettest results export
+
+Export sweep results to CSV for external analysis.
+
+### Usage
+
+```bash
+python3 -m nettest results export <file> [--output <csv_file>]
+```
+
+### Example
+
+```bash
+python3 -m nettest results export results/sweep_*.json -o analysis.csv
+```
+
+---
+
 ## See Also
 
 - [Getting Started](getting-started.md)
 - [Traffic Generation](traffic-generation.md)
 - [Network Emulation](network-emulation.md)
+- [Multi-Client Testing](multi-client-testing.md)

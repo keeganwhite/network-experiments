@@ -1,0 +1,32 @@
+# WiFi AP Stress Test
+# Find the breaking point of your WiFi access point
+#
+# Usage:
+#   python3 -m nettest scenario sweep -s scenarios/wifi_stress_test.yaml --server 192.168.1.100
+
+name: "WiFi Stress Test"
+description: "Find breaking point of WiFi AP"
+
+# Aggressive client count ramp
+client_counts: [10, 20, 30, 40, 50, 60, 70, 80]
+
+# Test configuration
+duration: 45                    # Shorter duration for quicker iteration
+ramp_up_time: 5
+
+# Apply crowded WiFi conditions
+environment: "environments/wifi_crowded.yaml"
+
+# High-activity client profile
+client_profile:
+  name: "active_user"
+
+  mice_enabled: true
+  mice_size_range: [512, 8192]    # Smaller, faster requests
+  mice_rate: 15.0                  # More aggressive rate
+  mice_concurrent: 6
+
+  elephant_enabled: true           # Include streaming/downloads
+  elephant_bandwidth: "5M"
+
+delay_between_tests: 5

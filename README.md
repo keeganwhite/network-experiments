@@ -2,14 +2,16 @@
 
 A simple, repeatable network testing framework for emulating real-world network conditions and generating realistic traffic patterns.
 
-**Perfect for testing:** switches, routers, firewalls, load balancers, applications under various network conditions.
+**Perfect for testing:** switches, routers, firewalls, load balancers, WiFi access points, and applications under various network conditions.
 
 ## Features
 
 - **Traffic Generation** - Mice flows (small/bursty) and elephant flows (large/sustained)
 - **Network Emulation** - Latency, jitter, packet loss, bandwidth limits, and more
+- **Multi-Client Simulation** - Test with 10, 20, 30+ concurrent clients
 - **YAML Configuration** - Easy-to-read profiles for repeatable tests
 - **Built-in Presets** - 4G, 3G, satellite, WiFi, and other common scenarios
+- **Results Analysis** - Compare performance across different client counts
 - **Detailed Metrics** - Throughput, retransmits, jitter, packet loss
 
 ## Quick Start
@@ -40,6 +42,18 @@ sudo python3 -m nettest env apply --preset 4g-mobile
 sudo python3 -m nettest env clear
 ```
 
+### Multi-Client Testing
+
+```bash
+# Test with varying client counts (10, 25, 50 clients)
+python3 -m nettest scenario sweep \
+    -s scenarios/quick_client_test.yaml \
+    --server <SERVER_IP>
+
+# Analyze results
+python3 -m nettest results analyze results/sweep_*.json
+```
+
 ## Test Profiles
 
 | Profile | Duration | Use Case |
@@ -58,6 +72,17 @@ sudo python3 -m nettest env clear
 | `congested` | 100ms | 3% | 5Mbit |
 
 List all: `python3 -m nettest env list`
+
+## Multi-Client Scenarios
+
+| Scenario | Clients | Use Case |
+|----------|---------|----------|
+| `quick_client_test.yaml` | 10, 25, 50 | Quick validation |
+| `wifi_client_sweep.yaml` | 5-30 | WiFi capacity |
+| `wifi_stress_test.yaml` | 10-80 | Find breaking point |
+| `office_simulation.yaml` | 10-50 | Enterprise simulation |
+
+List all: `python3 -m nettest scenario list`
 
 ## Custom Configurations
 
@@ -99,6 +124,7 @@ See the [docs/](docs/) folder for detailed documentation:
 - [Getting Started](docs/getting-started.md)
 - [Traffic Generation](docs/traffic-generation.md)
 - [Network Emulation](docs/network-emulation.md)
+- [Multi-Client Testing](docs/multi-client-testing.md)
 - [CLI Reference](docs/cli-reference.md)
 - [Examples](docs/examples.md)
 

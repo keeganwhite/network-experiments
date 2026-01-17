@@ -20,6 +20,16 @@ from .emulation import (
     list_presets,
     get_preset,
 )
+from .scenarios import ScenarioRunner, ScenarioConfig
+from .analysis import (
+    list_results,
+    list_sweep_results,
+    summarize_results,
+    analyze_sweep,
+    print_analysis,
+    compare_sweeps,
+    export_sweep_csv,
+)
 
 console = Console()
 
@@ -274,6 +284,231 @@ def _print_env_config(env: NetworkEnvironment) -> None:
         console.print(f"  Bandwidth: [yellow]{env.bandwidth.rate}[/yellow]")
 
 
+def cmd_scenario_run(args: argparse.Namespace) -> None:
+    """Run a single scenario."""
+    console.print(f"[bold blue]Loading scenario: {args.scenario}[/bold blue]")
+    
+    try:
+        config = ScenarioConfig.from_yaml(args.scenario)
+    except FileNotFoundError:
+        console.print(f"[red]Error: Scenario file not found: {args.scenario}[/red]")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error loading scenario: {e}[/red]")
+        sys.exit(1)
+    
+    # Override values if specified
+    if args.clients:
+        config.num_clients = args.clients
+    if args.duration:
+        config.duration = args.duration
+    
+    output_dir = Path(args.output) if args.output else Path("results")
+    
+    runner = ScenarioRunner(
+        server_host=args.server,
+        base_port=args.base_port,
+        output_dir=output_dir,
+    )
+    
+    try:
+        result = asyncio.run(runner.run_scenario(config, apply_environment=not args.no_env))
+        console.print(f"\n[green]Scenario completed: {result.success_rate:.1f}% success rate[/green]")
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Scenario interrupted by user[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        sys.exit(1)
+
+
+def cmd_scenario_sweep(args: argparse.Namespace) -> None:
+    """Run a parameter sweep (multiple scenarios with varying parameters)."""
+    console.print(f"[bold blue]Loading sweep configuration: {args.scenario}[/bold blue]")
+    
+    try:
+        # Load sweep configuration from YAML
+        path = Path(args.scenario)
+        if not path.exists():
+            console.print(f"[red]Error: Scenario file not found: {args.scenario}[/red]")
+            sys.exit(1)
+        
+        with open(path) as f:
+            sweep_data = yaml.safe_load(f) or {}
+    except Exception as e:
+        console.print(f"[red]Error loading scenario: {e}[/red]")
+        sys.exit(1)
+    
+    # Extract sweep parameters
+    client_counts = sweep_data.get("client_counts", [10, 20, 30])
+    if args.clients:
+        # Override with command-line specified counts
+        client_counts = [int(x.strip()) for x in args.clients.split(",")]
+    
+    # Build base config
+    base_config = ScenarioConfig.from_dict(sweep_data)
+    
+    if args.duration:
+        base_config.duration = args.duration
+    
+    delay_between = sweep_data.get("delay_between_tests", 10)
+    
+    output_dir = Path(args.output) if args.output else Path("results")
+    
+    runner = ScenarioRunner(
+        server_host=args.server,
+        base_port=args.base_port,
+        output_dir=output_dir,
+    )
+    
+    console.print(f"\n[bold]Sweep Configuration:[/bold]")
+    console.print(f"  Name: {base_config.name}")
+    console.print(f"  Client counts: {client_counts}")
+    console.print(f"  Duration per test: {base_config.duration}s")
+    if base_config.environment:
+        console.print(f"  Environment: {base_config.environment}")
+    elif base_config.environment_preset:
+        console.print(f"  Environment preset: {base_config.environment_preset}")
+    
+    try:
+        sweep_result = asyncio.run(
+            runner.run_client_sweep(
+                base_config=base_config,
+                client_counts=client_counts,
+                apply_environment=not args.no_env,
+                delay_between=delay_between,
+            )
+        )
+        console.print(f"\n[bold green]Sweep completed![/bold green]")
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Sweep interrupted by user[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        sys.exit(1)
+
+
+def cmd_scenario_list(args: argparse.Namespace) -> None:
+    """List available scenarios."""
+    scenarios_dir = Path("scenarios")
+    
+    console.print("[bold cyan]Available Scenarios:[/bold cyan]")
+    
+    if scenarios_dir.exists():
+        yaml_files = list(scenarios_dir.glob("*.yaml")) + list(scenarios_dir.glob("*.yml"))
+        if yaml_files:
+            table = Table(show_header=True)
+            table.add_column("File", style="cyan")
+            table.add_column("Name")
+            table.add_column("Client Counts")
+            
+            for f in sorted(yaml_files):
+                try:
+                    with open(f) as fh:
+                        data = yaml.safe_load(fh) or {}
+                    name = data.get("name", "Unnamed")
+                    counts = data.get("client_counts", [])
+                    counts_str = ", ".join(str(c) for c in counts[:5])
+                    if len(counts) > 5:
+                        counts_str += f" ... ({len(counts)} total)"
+                    table.add_row(f.name, name, counts_str)
+                except Exception:
+                    table.add_row(f.name, "(could not load)", "-")
+            
+            console.print(table)
+        else:
+            console.print("  [dim]No scenario files found in scenarios/[/dim]")
+    else:
+        console.print("  [dim]scenarios/ directory not found[/dim]")
+    
+    console.print("\n[bold]Quick Start:[/bold]")
+    console.print("  python3 -m nettest scenario sweep -s scenarios/quick_client_test.yaml --server <IP>")
+
+
+def cmd_results_list(args: argparse.Namespace) -> None:
+    """List available result files."""
+    results_dir = Path(args.dir)
+    
+    # List sweep results
+    sweeps = list_sweep_results(results_dir)
+    if sweeps:
+        console.print("[bold cyan]Sweep Results:[/bold cyan]")
+        table = Table(show_header=True)
+        table.add_column("File", style="cyan")
+        table.add_column("Timestamp")
+        table.add_column("Scenarios")
+        
+        for f in sweeps[:10]:  # Show last 10
+            try:
+                with open(f) as fh:
+                    data = yaml.safe_load(fh) or {}
+                timestamp = data.get("timestamp", "Unknown")[:19]
+                num_results = len(data.get("results", []))
+                table.add_row(f.name, timestamp, str(num_results))
+            except Exception:
+                table.add_row(f.name, "?", "?")
+        
+        console.print(table)
+        if len(sweeps) > 10:
+            console.print(f"  [dim]... and {len(sweeps) - 10} more[/dim]")
+    
+    # List test results
+    all_results = list_results(results_dir)
+    test_results = [r for r in all_results if not r.name.startswith("sweep_")]
+    
+    if test_results:
+        console.print("\n[bold cyan]Test Results:[/bold cyan]")
+        for f in test_results[:10]:
+            console.print(f"  {f.name}")
+        if len(test_results) > 10:
+            console.print(f"  [dim]... and {len(test_results) - 10} more[/dim]")
+    
+    if not sweeps and not test_results:
+        console.print("[yellow]No result files found[/yellow]")
+
+
+def cmd_results_analyze(args: argparse.Namespace) -> None:
+    """Analyze a sweep result file."""
+    filepath = Path(args.file)
+    if not filepath.exists():
+        console.print(f"[red]File not found: {filepath}[/red]")
+        sys.exit(1)
+    
+    try:
+        analysis = analyze_sweep(filepath)
+        print_analysis(analysis)
+    except Exception as e:
+        console.print(f"[red]Error analyzing file: {e}[/red]")
+        sys.exit(1)
+
+
+def cmd_results_compare(args: argparse.Namespace) -> None:
+    """Compare multiple sweep results."""
+    filepaths = [Path(f) for f in args.files]
+    
+    # Check files exist
+    missing = [f for f in filepaths if not f.exists()]
+    if missing:
+        console.print(f"[red]Files not found: {missing}[/red]")
+        sys.exit(1)
+    
+    compare_sweeps(filepaths)
+
+
+def cmd_results_export(args: argparse.Namespace) -> None:
+    """Export sweep results to CSV."""
+    filepath = Path(args.file)
+    if not filepath.exists():
+        console.print(f"[red]File not found: {filepath}[/red]")
+        sys.exit(1)
+    
+    output = Path(args.output) if args.output else filepath.with_suffix(".csv")
+    
+    try:
+        export_sweep_csv(filepath, output)
+    except Exception as e:
+        console.print(f"[red]Error exporting: {e}[/red]")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -392,6 +627,162 @@ def main() -> None:
         help="Network interface (auto-detected if not specified)",
     )
     env_status_parser.set_defaults(func=cmd_env_status)
+    
+    # =========== Scenario command ===========
+    scenario_parser = subparsers.add_parser(
+        "scenario",
+        help="Multi-client scenario testing",
+        description="Run multi-client simulations with varying parameters",
+    )
+    scenario_subparsers = scenario_parser.add_subparsers(dest="scenario_command", required=True)
+    
+    # scenario run
+    scenario_run_parser = scenario_subparsers.add_parser(
+        "run",
+        help="Run a single scenario",
+    )
+    scenario_run_parser.add_argument(
+        "--scenario", "-s",
+        required=True,
+        help="Path to scenario YAML file",
+    )
+    scenario_run_parser.add_argument(
+        "--server",
+        required=True,
+        help="Server IP address or hostname",
+    )
+    scenario_run_parser.add_argument(
+        "--clients", "-c",
+        type=int,
+        help="Override number of clients",
+    )
+    scenario_run_parser.add_argument(
+        "--duration", "-d",
+        type=int,
+        help="Override test duration (seconds)",
+    )
+    scenario_run_parser.add_argument(
+        "--base-port",
+        type=int,
+        default=5201,
+        help="Base port for iperf3 connections (default: 5201)",
+    )
+    scenario_run_parser.add_argument(
+        "--output", "-o",
+        help="Output directory for results (default: results/)",
+    )
+    scenario_run_parser.add_argument(
+        "--no-env",
+        action="store_true",
+        help="Don't apply network environment",
+    )
+    scenario_run_parser.set_defaults(func=cmd_scenario_run)
+    
+    # scenario sweep
+    scenario_sweep_parser = scenario_subparsers.add_parser(
+        "sweep",
+        help="Run parameter sweep (test multiple client counts)",
+    )
+    scenario_sweep_parser.add_argument(
+        "--scenario", "-s",
+        required=True,
+        help="Path to scenario YAML file",
+    )
+    scenario_sweep_parser.add_argument(
+        "--server",
+        required=True,
+        help="Server IP address or hostname",
+    )
+    scenario_sweep_parser.add_argument(
+        "--clients", "-c",
+        help="Override client counts (comma-separated, e.g., '10,20,30')",
+    )
+    scenario_sweep_parser.add_argument(
+        "--duration", "-d",
+        type=int,
+        help="Override test duration (seconds)",
+    )
+    scenario_sweep_parser.add_argument(
+        "--base-port",
+        type=int,
+        default=5201,
+        help="Base port for iperf3 connections (default: 5201)",
+    )
+    scenario_sweep_parser.add_argument(
+        "--output", "-o",
+        help="Output directory for results (default: results/)",
+    )
+    scenario_sweep_parser.add_argument(
+        "--no-env",
+        action="store_true",
+        help="Don't apply network environment",
+    )
+    scenario_sweep_parser.set_defaults(func=cmd_scenario_sweep)
+    
+    # scenario list
+    scenario_list_parser = scenario_subparsers.add_parser(
+        "list",
+        help="List available scenarios",
+    )
+    scenario_list_parser.set_defaults(func=cmd_scenario_list)
+    
+    # =========== Results command ===========
+    results_parser = subparsers.add_parser(
+        "results",
+        help="Analyze and compare results",
+        description="Tools for analyzing test results and sweep comparisons",
+    )
+    results_subparsers = results_parser.add_subparsers(dest="results_command", required=True)
+    
+    # results list
+    results_list_parser = results_subparsers.add_parser(
+        "list",
+        help="List available result files",
+    )
+    results_list_parser.add_argument(
+        "--dir", "-d",
+        default="results",
+        help="Results directory (default: results/)",
+    )
+    results_list_parser.set_defaults(func=cmd_results_list)
+    
+    # results analyze
+    results_analyze_parser = results_subparsers.add_parser(
+        "analyze",
+        help="Analyze a sweep result file",
+    )
+    results_analyze_parser.add_argument(
+        "file",
+        help="Path to sweep result JSON file",
+    )
+    results_analyze_parser.set_defaults(func=cmd_results_analyze)
+    
+    # results compare
+    results_compare_parser = results_subparsers.add_parser(
+        "compare",
+        help="Compare multiple sweep results",
+    )
+    results_compare_parser.add_argument(
+        "files",
+        nargs="+",
+        help="Paths to sweep result JSON files",
+    )
+    results_compare_parser.set_defaults(func=cmd_results_compare)
+    
+    # results export
+    results_export_parser = results_subparsers.add_parser(
+        "export",
+        help="Export sweep results to CSV",
+    )
+    results_export_parser.add_argument(
+        "file",
+        help="Path to sweep result JSON file",
+    )
+    results_export_parser.add_argument(
+        "--output", "-o",
+        help="Output CSV file (default: same name as input with .csv extension)",
+    )
+    results_export_parser.set_defaults(func=cmd_results_export)
     
     args = parser.parse_args()
     args.func(args)

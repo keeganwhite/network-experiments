@@ -1,0 +1,22 @@
+# Home WiFi Environment
+# Simulates typical home WiFi network with low contention
+#
+# Use case: Testing home networking equipment
+# Typical scenario: 1-5 active devices, good signal strength
+
+name: "Home WiFi (Low Contention)"
+description: "Typical home WiFi with minimal interference"
+
+latency:
+  delay_ms: 3
+  jitter_ms: 2
+  correlation_pct: 20
+  distribution: normal
+
+packet_loss:
+  loss_pct: 0.1
+  correlation_pct: 10
+
+bandwidth:
+  rate: "100mbit"
+  burst: "256kbit"
